@@ -1,18 +1,19 @@
 /**
  * External Dependencies
  */
-import { filter } from 'lodash';
+import { filter, pick } from 'lodash';
 
 /**
  * WordPress dependencies
  */
-import { Component } from '@wordpress/element';
+import { Component, Fragment } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { mediaUpload } from '@wordpress/utils';
 import {
 	IconButton,
 	DropZone,
 	FormFileUpload,
+	PanelBody,
 	RangeControl,
 	SelectControl,
 	ToggleControl,
@@ -84,10 +85,7 @@ class GalleryBlock extends Component {
 
 	onSelectImages( images ) {
 		this.props.setAttributes( {
-			images: images.map( ( attributes ) => ( {
-				...attributes,
-				caption: attributes.caption ? [ attributes.caption ] : [],
-			} ) ),
+			images: images.map( ( image ) => pick( image, [ 'alt', 'caption', 'id', 'url' ] ) ),
 		} );
 	}
 
@@ -105,6 +103,10 @@ class GalleryBlock extends Component {
 
 	toggleImageCrop() {
 		this.props.setAttributes( { imageCrop: ! this.props.attributes.imageCrop } );
+	}
+
+	getImageCropHelp( checked ) {
+		return checked ? __( 'Thumbnails are cropped to align.' ) : __( 'Thumbnails are not cropped.' );
 	}
 
 	setImageAttributes( index, attributes ) {
@@ -137,7 +139,8 @@ class GalleryBlock extends Component {
 				setAttributes( {
 					images: currentImages.concat( images ),
 				} );
-			}
+			},
+			'image',
 		);
 	}
 
@@ -162,103 +165,107 @@ class GalleryBlock extends Component {
 		);
 
 		const controls = (
-			isSelected && (
-				<BlockControls key="controls">
-					<BlockAlignmentToolbar
-						value={ align }
-						onChange={ this.updateAlignment }
-					/>
-					{ !! images.length && (
-						<Toolbar>
-							<MediaUpload
-								onSelect={ this.onSelectImages }
-								type="image"
-								multiple
-								gallery
-								value={ images.map( ( img ) => img.id ) }
-								render={ ( { open } ) => (
-									<IconButton
-										className="components-toolbar__control"
-										label={ __( 'Edit Gallery' ) }
-										icon="edit"
-										onClick={ open }
-									/>
-								) }
-							/>
-						</Toolbar>
-					) }
-				</BlockControls>
-			)
+			<BlockControls>
+				<BlockAlignmentToolbar
+					value={ align }
+					onChange={ this.updateAlignment }
+				/>
+				{ !! images.length && (
+					<Toolbar>
+						<MediaUpload
+							onSelect={ this.onSelectImages }
+							type="image"
+							multiple
+							gallery
+							value={ images.map( ( img ) => img.id ) }
+							render={ ( { open } ) => (
+								<IconButton
+									className="components-toolbar__control"
+									label={ __( 'Edit Gallery' ) }
+									icon="edit"
+									onClick={ open }
+								/>
+							) }
+						/>
+					</Toolbar>
+				) }
+			</BlockControls>
 		);
 
 		if ( images.length === 0 ) {
-			return [
-				controls,
-				<ImagePlaceholder key="gallery-placeholder"
-					className={ className }
-					icon="format-gallery"
-					label={ __( 'Gallery' ) }
-					onSelectImage={ this.onSelectImages }
-					multiple
-				/>,
-			];
+			return (
+				<Fragment>
+					{ controls }
+					<ImagePlaceholder
+						className={ className }
+						icon="format-gallery"
+						label={ __( 'Gallery' ) }
+						onSelectImage={ this.onSelectImages }
+						multiple
+					/>
+				</Fragment>
+			);
 		}
 
-		return [
-			controls,
-			isSelected && (
-				<InspectorControls key="inspector">
-					<h2>{ __( 'Gallery Settings' ) }</h2>
-					{ images.length > 1 && <RangeControl
-						label={ __( 'Columns' ) }
-						value={ columns }
-						onChange={ this.setColumnsNumber }
-						min={ 1 }
-						max={ Math.min( MAX_COLUMNS, images.length ) }
-					/> }
-					<ToggleControl
-						label={ __( 'Crop Images' ) }
-						checked={ !! imageCrop }
-						onChange={ this.toggleImageCrop }
-					/>
-					<SelectControl
-						label={ __( 'Link to' ) }
-						value={ linkTo }
-						onChange={ this.setLinkTo }
-						options={ linkOptions }
-					/>
+		return (
+			<Fragment>
+				{ controls }
+				<InspectorControls>
+					<PanelBody title={ __( 'Gallery Settings' ) }>
+						{ images.length > 1 && <RangeControl
+							label={ __( 'Columns' ) }
+							value={ columns }
+							onChange={ this.setColumnsNumber }
+							min={ 1 }
+							max={ Math.min( MAX_COLUMNS, images.length ) }
+						/> }
+						<ToggleControl
+							label={ __( 'Crop Images' ) }
+							checked={ !! imageCrop }
+							onChange={ this.toggleImageCrop }
+							help={ this.getImageCropHelp }
+						/>
+						<SelectControl
+							label={ __( 'Link to' ) }
+							value={ linkTo }
+							onChange={ this.setLinkTo }
+							options={ linkOptions }
+						/>
+					</PanelBody>
 				</InspectorControls>
-			),
-			<ul key="gallery" className={ `${ className } align${ align } columns-${ columns } ${ imageCrop ? 'is-cropped' : '' }` }>
-				{ dropZone }
-				{ images.map( ( img, index ) => (
-					<li className="blocks-gallery-item" key={ img.id || img.url }>
-						<GalleryImage
-							url={ img.url }
-							alt={ img.alt }
-							id={ img.id }
-							isSelected={ isSelected && this.state.selectedImage === index }
-							onRemove={ this.onRemoveImage( index ) }
-							onSelect={ this.onSelectImage( index ) }
-							setAttributes={ ( attrs ) => this.setImageAttributes( index, attrs ) }
-							caption={ img.caption }
-						/>
-					</li>
-				) ) }
-				{ isSelected &&
-					<li className="blocks-gallery-item">
-						<FormFileUpload
-							multiple
-							isLarge
-							className="blocks-gallery-add-item-button"
-							onChange={ this.uploadFromFiles }
-							accept="image/*"
-							icon="insert"
-						/>
-					</li>
-				}
-			</ul>,
-		];
+				<ul className={ `${ className } align${ align } columns-${ columns } ${ imageCrop ? 'is-cropped' : '' }` }>
+					{ dropZone }
+					{ images.map( ( img, index ) => (
+						<li className="blocks-gallery-item" key={ img.id || img.url }>
+							<GalleryImage
+								url={ img.url }
+								alt={ img.alt }
+								id={ img.id }
+								isSelected={ isSelected && this.state.selectedImage === index }
+								onRemove={ this.onRemoveImage( index ) }
+								onSelect={ this.onSelectImage( index ) }
+								setAttributes={ ( attrs ) => this.setImageAttributes( index, attrs ) }
+								caption={ img.caption }
+							/>
+						</li>
+					) ) }
+					{ isSelected &&
+						<li className="blocks-gallery-item">
+							<FormFileUpload
+								multiple
+								isLarge
+								className="blocks-gallery-add-item-button"
+								onChange={ this.uploadFromFiles }
+								accept="image/*"
+								icon="insert"
+							>
+								{ __( 'Upload an image' ) }
+							</FormFileUpload>
+						</li>
+					}
+				</ul>
+			</Fragment>
+		);
 	}
 }
 

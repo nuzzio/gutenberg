@@ -9,12 +9,14 @@ import memoize from 'memize';
  * WordPress dependencies
  */
 import { __, sprintf } from '@wordpress/i18n';
-import { RangeControl } from '@wordpress/components';
+import { PanelBody, RangeControl } from '@wordpress/components';
+import { Fragment } from '@wordpress/element';
 
 /**
  * Internal dependencies
  */
 import './style.scss';
+import './editor.scss';
 import InspectorControls from '../../inspector-controls';
 import BlockControls from '../../block-controls';
 import BlockAlignmentToolbar from '../../block-alignment-toolbar';
@@ -67,13 +69,13 @@ export const settings = {
 		return { 'data-align': align };
 	},
 
-	edit( { attributes, setAttributes, className, focus } ) {
+	edit( { attributes, setAttributes, className } ) {
 		const { align, columns } = attributes;
 		const classes = classnames( className, `has-${ columns }-columns` );
 
-		return [
-			...focus ? [
-				<BlockControls key="controls">
+		return (
+			<Fragment>
+				<BlockControls>
 					<BlockAlignmentToolbar
 						controls={ [ 'wide', 'full' ] }
 						value={ align }
@@ -81,25 +83,27 @@ export const settings = {
 							setAttributes( { align: nextAlign } );
 						} }
 					/>
-				</BlockControls>,
-				<InspectorControls key="inspector">
-					<RangeControl
-						label={ __( 'Columns' ) }
-						value={ columns }
-						onChange={ ( nextColumns ) => {
-							setAttributes( {
-								columns: nextColumns,
-							} );
-						} }
-						min={ 2 }
-						max={ 6 }
-					/>
-				</InspectorControls>,
-			] : [],
-			<div className={ classes } key="container">
-				<InnerBlocks layouts={ getColumnLayouts( columns ) } />
-			</div>,
-		];
+				</BlockControls>
+				<InspectorControls>
+					<PanelBody>
+						<RangeControl
+							label={ __( 'Columns' ) }
+							value={ columns }
+							onChange={ ( nextColumns ) => {
+								setAttributes( {
+									columns: nextColumns,
+								} );
+							} }
+							min={ 2 }
+							max={ 6 }
+						/>
+					</PanelBody>
+				</InspectorControls>
+				<div className={ classes }>
+					<InnerBlocks layouts={ getColumnLayouts( columns ) } />
+				</div>
+			</Fragment>
+		);
 	},
 
 	save( { attributes } ) {

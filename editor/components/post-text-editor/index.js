@@ -1,74 +1,90 @@
 /**
  * External dependencies
  */
-import { connect } from 'react-redux';
 import Textarea from 'react-autosize-textarea';
 
 /**
  * WordPress dependencies
  */
-import { Component } from '@wordpress/element';
+import { Component, compose } from '@wordpress/element';
 import { parse } from '@wordpress/blocks';
+import { withSelect, withDispatch } from '@wordpress/data';
 
 /**
  * Internal dependencies
  */
 import './style.scss';
-import { getEditedPostContent } from '../../store/selectors';
-import { editPost, resetBlocks } from '../../store/actions';
 
 class PostTextEditor extends Component {
-	constructor( props ) {
+	constructor() {
 		super( ...arguments );
 
-		this.onChange = this.onChange.bind( this );
-		this.onPersist = this.onPersist.bind( this );
+		this.startEditing = this.startEditing.bind( this );
+		this.edit = this.edit.bind( this );
+		this.stopEditing = this.stopEditing.bind( this );
 
 		this.state = {
-			initialValue: props.value,
+			value: null,
+			isDirty: false,
 		};
 	}
 
-	onChange( event ) {
-		this.props.onChange( event.target.value );
-	}
-
-	onPersist( event ) {
-		const { value } = event.target;
-		if ( value !== this.state.initialValue ) {
-			this.props.onPersist( value );
-
-			this.setState( {
-				initialValue: value,
-			} );
+	componentWillReceiveProps( nextProps ) {
+		// If we receive a new value while we're editing (but before we've made
+		// changes), go ahead and clobber the local state
+		if ( this.props.value !== nextProps.value && this.state.value && ! this.state.isDirty ) {
+			this.setState( { value: nextProps.value } );
 		}
 	}
 
-	render() {
-		const { value } = this.props;
+	startEditing() {
+		// Copying the post content into local state ensures that edits won't be
+		// clobbered by changes to global editor state
+		this.setState( { value: this.props.value } );
+	}
 
+	edit( event ) {
+		const value = event.target.value;
+		this.props.onChange( value );
+		this.setState( { value, isDirty: true } );
+	}
+
+	stopEditing() {
+		if ( this.state.isDirty ) {
+			this.props.onPersist( this.state.value );
+		}
+
+		this.setState( { value: null, isDirty: false } );
+	}
+
+	render() {
 		return (
 			<Textarea
 				autoComplete="off"
-				value={ value }
-				onChange={ this.onChange }
-				onBlur={ this.onPersist }
+				value={ this.state.value || this.props.value }
+				onFocus={ this.startEditing }
+				onChange={ this.edit }
+				onBlur={ this.stopEditing }
 				className="editor-post-text-editor"
 			/>
 		);
 	}
 }
 
-export default connect(
-	( state ) => ( {
-		value: getEditedPostContent( state ),
+export default compose( [
+	withSelect( ( select ) => ( {
+		value: select( 'core/editor' ).getEditedPostContent(),
+	} ) ),
+	withDispatch( ( dispatch ) => {
+		const { editPost, resetBlocks, checkTemplateValidity } = dispatch( 'core/editor' );
+		return {
+			onChange( content ) {
+				editPost( { content } );
+			},
+			onPersist( content ) {
+				resetBlocks( parse( content ) );
+				checkTemplateValidity();
+			},
+		};
 	} ),
-	{
-		onChange( content ) {
-			return editPost( { content } );
-		},
-		onPersist( content ) {
-			return resetBlocks( parse( content ) );
-		},
-	}
-)( PostTextEditor );
+] )( PostTextEditor );

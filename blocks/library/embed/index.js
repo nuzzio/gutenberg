@@ -9,7 +9,7 @@ import { stringify } from 'querystring';
  * WordPress dependencies
  */
 import { __, sprintf } from '@wordpress/i18n';
-import { Component, renderToString } from '@wordpress/element';
+import { Component, Fragment, renderToString } from '@wordpress/element';
 import { Button, Placeholder, Spinner, SandBox } from '@wordpress/components';
 import classnames from 'classnames';
 
@@ -71,7 +71,9 @@ function getEmbedBlockSettings( { title, icon, category = 'embed', transforms, k
 		edit: class extends Component {
 			constructor() {
 				super( ...arguments );
+
 				this.doServerSideRender = this.doServerSideRender.bind( this );
+
 				this.state = {
 					html: '',
 					type: '',
@@ -143,11 +145,11 @@ function getEmbedBlockSettings( { title, icon, category = 'embed', transforms, k
 			render() {
 				const { html, type, error, fetching } = this.state;
 				const { align, url, caption } = this.props.attributes;
-				const { setAttributes, isSelected } = this.props;
+				const { setAttributes, isSelected, className } = this.props;
 				const updateAlignment = ( nextAlign ) => setAttributes( { align: nextAlign } );
 
-				const controls = isSelected && (
-					<BlockControls key="controls">
+				const controls = (
+					<BlockControls>
 						<BlockAlignmentToolbar
 							value={ align }
 							onChange={ updateAlignment }
@@ -156,38 +158,42 @@ function getEmbedBlockSettings( { title, icon, category = 'embed', transforms, k
 				);
 
 				if ( fetching ) {
-					return [
-						controls,
-						<div key="loading" className="wp-block-embed is-loading">
-							<Spinner />
-							<p>{ __( 'Embedding…' ) }</p>
-						</div>,
-					];
+					return (
+						<Fragment>
+							{ controls }
+							<div className="wp-block-embed is-loading">
+								<Spinner />
+								<p>{ __( 'Embedding…' ) }</p>
+							</div>
+						</Fragment>
+					);
 				}
 
 				if ( ! html ) {
 					const label = sprintf( __( '%s URL' ), title );
 
-					return [
-						controls,
-						<Placeholder key="placeholder" icon={ icon } label={ label } className="wp-block-embed">
-							<form onSubmit={ this.doServerSideRender }>
-								<input
-									type="url"
-									value={ url || '' }
-									className="components-placeholder__input"
-									aria-label={ label }
-									placeholder={ __( 'Enter URL to embed here…' ) }
-									onChange={ ( event ) => setAttributes( { url: event.target.value } ) } />
-								<Button
-									isLarge
-									type="submit">
-									{ __( 'Embed' ) }
-								</Button>
-								{ error && <p className="components-placeholder__error">{ __( 'Sorry, we could not embed that content.' ) }</p> }
-							</form>
-						</Placeholder>,
-					];
+					return (
+						<Fragment>
+							{ controls }
+							<Placeholder icon={ icon } label={ label } className="wp-block-embed">
+								<form onSubmit={ this.doServerSideRender }>
+									<input
+										type="url"
+										value={ url || '' }
+										className="components-placeholder__input"
+										aria-label={ label }
+										placeholder={ __( 'Enter URL to embed here…' ) }
+										onChange={ ( event ) => setAttributes( { url: event.target.value } ) } />
+									<Button
+										isLarge
+										type="submit">
+										{ __( 'Embed' ) }
+									</Button>
+									{ error && <p className="components-placeholder__error">{ __( 'Sorry, we could not embed that content.' ) }</p> }
+								</form>
+							</Placeholder>
+						</Fragment>
+					);
 				}
 
 				const parsedUrl = parse( url );
@@ -207,32 +213,29 @@ function getEmbedBlockSettings( { title, icon, category = 'embed', transforms, k
 						/>
 					</div>
 				);
-				let typeClassName = 'wp-block-embed';
-				if ( 'video' === type ) {
-					typeClassName += ' is-video';
-				}
 
-				return [
-					controls,
-					<figure key="embed" className={ typeClassName }>
-						{ ( cannotPreview ) ? (
-							<Placeholder icon={ icon } label={ __( 'Embed URL' ) }>
-								<p className="components-placeholder__error"><a href={ url }>{ url }</a></p>
-								<p className="components-placeholder__error">{ __( 'Previews for this are unavailable in the editor, sorry!' ) }</p>
-							</Placeholder>
-						) : embedWrapper }
-						{ ( caption && caption.length > 0 ) || isSelected ? (
-							<RichText
-								tagName="figcaption"
-								placeholder={ __( 'Write caption…' ) }
-								value={ caption }
-								onChange={ ( value ) => setAttributes( { caption: value } ) }
-								isSelected={ isSelected }
-								inlineToolbar
-							/>
-						) : null }
-					</figure>,
-				];
+				return (
+					<Fragment>
+						{ controls }
+						<figure className={ classnames( className, { 'is-video': 'video' === type } ) }>
+							{ ( cannotPreview ) ? (
+								<Placeholder icon={ icon } label={ __( 'Embed URL' ) }>
+									<p className="components-placeholder__error"><a href={ url }>{ url }</a></p>
+									<p className="components-placeholder__error">{ __( 'Previews for this are unavailable in the editor, sorry!' ) }</p>
+								</Placeholder>
+							) : embedWrapper }
+							{ ( caption && caption.length > 0 ) || isSelected ? (
+								<RichText
+									tagName="figcaption"
+									placeholder={ __( 'Write caption…' ) }
+									value={ caption }
+									onChange={ ( value ) => setAttributes( { caption: value } ) }
+									inlineToolbar
+								/>
+							) : null }
+						</figure>
+					</Fragment>
+				);
 			}
 		},
 
@@ -240,7 +243,7 @@ function getEmbedBlockSettings( { title, icon, category = 'embed', transforms, k
 			const { url, caption, align, type, providerNameSlug } = attributes;
 
 			if ( ! url ) {
-				return;
+				return null;
 			}
 
 			const embedClassName = classnames( 'wp-block-embed', {
@@ -268,7 +271,7 @@ export const settings = getEmbedBlockSettings( {
 		from: [
 			{
 				type: 'raw',
-				isMatch: ( node ) => node.nodeName === 'P' && /^\s*(https?:\/\/\S+)\s*/i.test( node.textContent ),
+				isMatch: ( node ) => node.nodeName === 'P' && /^\s*(https?:\/\/\S+)\s*$/i.test( node.textContent ),
 				transform: ( node ) => {
 					return createBlock( 'core/embed', {
 						url: node.textContent.trim(),

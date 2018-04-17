@@ -7,6 +7,7 @@ import { isEmpty } from 'lodash';
  * WordPress dependencies
  */
 import { IconButton, PanelBody, RangeControl, ToggleControl, Toolbar } from '@wordpress/components';
+import { Fragment } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import classnames from 'classnames';
 
@@ -26,6 +27,35 @@ import InspectorControls from '../../inspector-controls';
 
 const validAlignments = [ 'left', 'center', 'right', 'wide', 'full' ];
 
+const blockAttributes = {
+	title: {
+		type: 'array',
+		source: 'children',
+		selector: 'p',
+	},
+	url: {
+		type: 'string',
+	},
+	align: {
+		type: 'string',
+	},
+	contentAlign: {
+		type: 'string',
+		default: 'center',
+	},
+	id: {
+		type: 'number',
+	},
+	hasParallax: {
+		type: 'boolean',
+		default: false,
+	},
+	dimRatio: {
+		type: 'number',
+		default: 50,
+	},
+};
+
 export const name = 'core/cover-image';
 
 export const settings = {
@@ -33,38 +63,11 @@ export const settings = {
 
 	description: __( 'Cover Image is a bold image block with an optional title.' ),
 
-	icon: 'format-image',
+	icon: 'cover-image',
 
 	category: 'common',
 
-	attributes: {
-		title: {
-			type: 'array',
-			source: 'children',
-			selector: 'h2',
-		},
-		url: {
-			type: 'string',
-		},
-		align: {
-			type: 'string',
-		},
-		contentAlign: {
-			type: 'string',
-			default: 'center',
-		},
-		id: {
-			type: 'number',
-		},
-		hasParallax: {
-			type: 'boolean',
-			default: false,
-		},
-		dimRatio: {
-			type: 'number',
-			default: 50,
-		},
-	},
+	attributes: blockAttributes,
 
 	transforms: {
 		from: [
@@ -101,9 +104,7 @@ export const settings = {
 		const toggleParallax = () => setAttributes( { hasParallax: ! hasParallax } );
 		const setDimRatio = ( ratio ) => setAttributes( { dimRatio: ratio } );
 
-		const style = url ?
-			{ backgroundImage: `url(${ url })` } :
-			undefined;
+		const style = backgroundImageStyles( url );
 		const classes = classnames(
 			className,
 			contentAlign !== 'center' && `has-${ contentAlign }-content`,
@@ -122,50 +123,53 @@ export const settings = {
 				} }
 			/>
 		);
-		const controls = isSelected && [
-			<BlockControls key="controls">
-				<BlockAlignmentToolbar
-					value={ align }
-					onChange={ updateAlignment }
-				/>
-
-				{ alignmentToolbar }
-				<Toolbar>
-					<MediaUpload
-						onSelect={ onSelectImage }
-						type="image"
-						value={ id }
-						render={ ( { open } ) => (
-							<IconButton
-								className="components-toolbar__control"
-								label={ __( 'Edit image' ) }
-								icon="edit"
-								onClick={ open }
-							/>
-						) }
+		const controls = (
+			<Fragment>
+				<BlockControls>
+					<BlockAlignmentToolbar
+						value={ align }
+						onChange={ updateAlignment }
 					/>
-				</Toolbar>
-			</BlockControls>,
-			<InspectorControls key="inspector">
-				<h2>{ __( 'Cover Image Settings' ) }</h2>
-				<ToggleControl
-					label={ __( 'Fixed Background' ) }
-					checked={ !! hasParallax }
-					onChange={ toggleParallax }
-				/>
-				<RangeControl
-					label={ __( 'Background Dimness' ) }
-					value={ dimRatio }
-					onChange={ setDimRatio }
-					min={ 0 }
-					max={ 100 }
-					step={ 10 }
-				/>
-				<PanelBody title={ __( 'Text Alignment' ) }>
+
 					{ alignmentToolbar }
-				</PanelBody>
-			</InspectorControls>,
-		];
+					<Toolbar>
+						<MediaUpload
+							onSelect={ onSelectImage }
+							type="image"
+							value={ id }
+							render={ ( { open } ) => (
+								<IconButton
+									className="components-toolbar__control"
+									label={ __( 'Edit image' ) }
+									icon="edit"
+									onClick={ open }
+								/>
+							) }
+						/>
+					</Toolbar>
+				</BlockControls>
+				<InspectorControls>
+					<PanelBody title={ __( 'Cover Image Settings' ) }>
+						<ToggleControl
+							label={ __( 'Fixed Background' ) }
+							checked={ !! hasParallax }
+							onChange={ toggleParallax }
+						/>
+						<RangeControl
+							label={ __( 'Background Dimness' ) }
+							value={ dimRatio }
+							onChange={ setDimRatio }
+							min={ 0 }
+							max={ 100 }
+							step={ 10 }
+						/>
+					</PanelBody>
+					<PanelBody title={ __( 'Text Alignment' ) }>
+						{ alignmentToolbar }
+					</PanelBody>
+				</InspectorControls>
+			</Fragment>
+		);
 
 		if ( ! url ) {
 			const hasTitle = ! isEmpty( title );
@@ -175,46 +179,46 @@ export const settings = {
 					tagName="h2"
 					value={ title }
 					onChange={ ( value ) => setAttributes( { title: value } ) }
-					isSelected={ isSelected }
 					inlineToolbar
 				/>
 			) : __( 'Cover Image' );
 
-			return [
-				controls,
-				<ImagePlaceholder key="cover-image-placeholder"
-					{ ...{ className, icon, label, onSelectImage } }
-				/>,
-			];
+			return (
+				<Fragment>
+					{ controls }
+					<ImagePlaceholder
+						{ ...{ className, icon, label, onSelectImage } }
+					/>
+				</Fragment>
+			);
 		}
 
-		return [
-			controls,
-			<section
-				key="preview"
-				data-url={ url }
-				style={ style }
-				className={ classes }
-			>
-				{ title || isSelected ? (
-					<RichText
-						tagName="h2"
-						placeholder={ __( 'Write title…' ) }
-						value={ title }
-						onChange={ ( value ) => setAttributes( { title: value } ) }
-						isSelected={ isSelected }
-						inlineToolbar
-					/>
-				) : null }
-			</section>,
-		];
+		return (
+			<Fragment>
+				{ controls }
+				<div
+					data-url={ url }
+					style={ style }
+					className={ classes }
+				>
+					{ title || isSelected ? (
+						<RichText
+							tagName="p"
+							className="wp-block-cover-image-text"
+							placeholder={ __( 'Write title…' ) }
+							value={ title }
+							onChange={ ( value ) => setAttributes( { title: value } ) }
+							inlineToolbar
+						/>
+					) : null }
+				</div>
+			</Fragment>
+		);
 	},
 
 	save( { attributes, className } ) {
 		const { url, title, hasParallax, dimRatio, align, contentAlign } = attributes;
-		const style = url ?
-			{ backgroundImage: `url(${ url })` } :
-			undefined;
+		const style = backgroundImageStyles( url );
 		const classes = classnames(
 			className,
 			dimRatioToClass( dimRatio ),
@@ -227,15 +231,54 @@ export const settings = {
 		);
 
 		return (
-			<section className={ classes } style={ style }>
-				<h2>{ title }</h2>
-			</section>
+			<div className={ classes } style={ style }>
+				{ title && title.length > 0 && (
+					<p className="wp-block-cover-image-text">{ title }</p>
+				) }
+			</div>
 		);
 	},
+
+	deprecated: [ {
+		attributes: {
+			...blockAttributes,
+			title: {
+				type: 'array',
+				source: 'children',
+				selector: 'h2',
+			},
+		},
+
+		save( { attributes, className } ) {
+			const { url, title, hasParallax, dimRatio, align } = attributes;
+			const style = backgroundImageStyles( url );
+			const classes = classnames(
+				className,
+				dimRatioToClass( dimRatio ),
+				{
+					'has-background-dim': dimRatio !== 0,
+					'has-parallax': hasParallax,
+				},
+				align ? `align${ align }` : null,
+			);
+
+			return (
+				<section className={ classes } style={ style }>
+					<h2>{ title }</h2>
+				</section>
+			);
+		},
+	} ],
 };
 
 function dimRatioToClass( ratio ) {
 	return ( ratio === 0 || ratio === 50 ) ?
 		null :
 		'has-background-dim-' + ( 10 * Math.round( ratio / 10 ) );
+}
+
+function backgroundImageStyles( url ) {
+	return url ?
+		{ backgroundImage: `url(${ url })` } :
+		undefined;
 }
